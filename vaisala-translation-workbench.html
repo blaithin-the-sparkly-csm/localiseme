@@ -20,16 +20,10 @@
   -------------------------------------------------------------------
   POST  {workerUrl}/api/mcp-call
     headers: { "Content-Type": "application/json",
-               "Authorization": "Bearer {sharedSecret}" }
+               "X-Demo-Secret": "{sharedSecret}" }
     body:    { "tool": "<mcp_tool_name>",
-               "arguments": { ... },
-               "context": "<contextId>" }   <-- Worker must forward this as the
-                                                 Bluestone `context` header so
-                                                 reads AND writes hit the right
-                                                 language. This is the one path
-                                                 to round-trip test (see footer).
-    response: the MCP result, e.g. { content: [ { type:"text", text:"..." } ] }
-              (JSON-RPC { result: { content:[...] } } is also handled.)
+               "args": { ... },
+               response: { success: true, result: { content: [ { type:"text", text:"..." } ] } }
 
   If your Worker uses a different header/route, adjust mcpCall() below.
   ============================================================================
@@ -329,10 +323,11 @@ function extractMcpText(data){
 /* Core call: browser -> Worker -> MCP. context is forwarded by the Worker as a header. */
 async function mcpCall(tool, args, context){
   if(!cfg.url || !cfg.secret) throw new Error('Not connected — open Settings.');
+  const finalArgs = (context && !(args||{}).context) ? {...(args||{}), context} : (args||{});
   const res = await fetch(cfg.url.replace(/\/+$/,'') + '/api/mcp-call', {
     method:'POST',
-    headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+cfg.secret },
-    body: JSON.stringify({ tool, arguments:args||{}, context: context||undefined })
+    headers:{ 'Content-Type':'application/json', 'X-Demo-Secret': cfg.secret },
+    body: JSON.stringify({ tool, args: finalArgs })
   });
   if(!res.ok){
     let detail=''; try{ detail=' — '+(await res.text()).slice(0,160); }catch(e){}
